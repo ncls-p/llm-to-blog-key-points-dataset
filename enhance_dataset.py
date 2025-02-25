@@ -1,12 +1,12 @@
 import json
-import requests
-import time
-from typing import Dict, List, Union, Optional
-from bs4 import BeautifulSoup
-from urllib.parse import urlparse
 import logging
-from pathlib import Path
 import re
+import time
+from pathlib import Path
+from typing import Dict, List, Optional, Union
+
+import requests
+from bs4 import BeautifulSoup
 
 # Set up logging
 logging.basicConfig(
@@ -114,7 +114,10 @@ class PerplexityEnhancer:
         return {"instruction": content, "input": "", "output": key_points}
 
     def update_dataset(
-        self, file_path: str, urls: Union[str, List[str]], backup: bool = True
+        self,
+        file_path: Union[str, Path],
+        urls: Union[str, List[str]],
+        backup: bool = True,
     ):
         """Update existing dataset with new entries from URLs"""
         # Load existing dataset

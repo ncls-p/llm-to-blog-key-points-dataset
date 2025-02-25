@@ -1,24 +1,25 @@
-import typer
+import json
+import os
+import sys
+from pathlib import Path
+from typing import List
+
 import questionary
+import typer
+from dotenv import load_dotenv
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
     TaskProgressColumn,
+    TextColumn,
 )
 from rich.table import Table
 from rich.text import Text
-from rich import print as rprint
-from pathlib import Path
-from typing import List, Optional
-import json
+
 from enhance_dataset import PerplexityEnhancer
-from dotenv import load_dotenv
-import os
-import sys
 
 # Load environment variables
 load_dotenv()
