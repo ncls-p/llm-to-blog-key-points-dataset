@@ -111,7 +111,7 @@ class PerplexityEnhancer:
         if not key_points:
             return None
 
-        return {"instruction": content, "input": "", "output": key_points}
+        return {"instruction": "", "input": content, "output": key_points}
 
     def update_dataset(
         self,
