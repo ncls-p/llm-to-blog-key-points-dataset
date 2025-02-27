@@ -104,8 +104,8 @@ The tool maintains the following format for each entry:
 
 ```json
 {
-  "instruction": "Full article content",
-  "input": "",
+  "instruction": "",
+  "input": "Full article content",
   "output": "Key points extracted by Perplexity AI"
 }
 ```
