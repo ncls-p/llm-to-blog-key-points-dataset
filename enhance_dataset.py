@@ -2,8 +2,10 @@ import json
 import logging
 import re
 import time
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Union
+from dotenv import load_dotenv
 
 import requests
 from bs4 import BeautifulSoup
@@ -14,11 +16,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Load environment variables
+load_dotenv()
 
-class PerplexityEnhancer:
+
+class OpenAICompatibleEnhancer:
     def __init__(self, api_key: str, max_retries: int = 3, retry_delay: int = 5):
         self.api_key = api_key
-        self.api_url = "https://api.perplexity.ai/chat/completions"
+        # Get base URL from environment variable, with a default fallback
+        base_api_url = os.getenv("OPENAI_COMPATIBLE_API_URL", "https://api.openai.com")
+        self.api_url = f"{base_api_url}/chat/completions"
         self.headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -67,7 +74,7 @@ class PerplexityEnhancer:
             return None
 
     def get_key_points(self, content: str) -> Optional[str]:
-        """Get key points from Perplexity API with retry mechanism"""
+        """Get key points from OpenAI compatible API with retry mechanism"""
         messages = [
             {
                 "role": "system",
@@ -77,7 +84,7 @@ class PerplexityEnhancer:
         ]
 
         payload = {
-            "model": "sonar",
+            "model": os.getenv("OPENAI_COMPATIBLE_MODEL", "gpt-3.5-turbo"),
             "messages": messages,
             "temperature": 0.2,
             "top_p": 0.9,
@@ -164,9 +171,13 @@ class PerplexityEnhancer:
 
 
 def main():
-    # Initialize enhancer with your API key
-    api_key = "YOUR_API_KEY"
-    enhancer = PerplexityEnhancer(api_key)
+    # Initialize enhancer with your API key from environment variable
+    api_key = os.getenv("OPENAI_COMPATIBLE_API_KEY")
+    if not api_key:
+        logger.error("API key not found in environment variables")
+        return
+
+    enhancer = OpenAICompatibleEnhancer(api_key)
 
     # Example usage - replace with your URLs
     urls = ["https://example.com/article1", "https://example.com/article2"]

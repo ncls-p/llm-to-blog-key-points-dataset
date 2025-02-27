@@ -1,6 +1,6 @@
-# Dataset Enhancer with Perplexity AI 🚀
+# Dataset Enhancer with OpenAI Compatible API 🚀
 
-A powerful CLI tool to enhance your dataset using Perplexity AI's API. This tool extracts key points from web articles and adds them to your dataset in a structured format.
+A powerful CLI tool to enhance your dataset using any OpenAI compatible API. This tool extracts key points from web articles and adds them to your dataset in a structured format.
 
 ## Features ✨
 
@@ -12,13 +12,14 @@ A powerful CLI tool to enhance your dataset using Perplexity AI's API. This tool
 - 📋 Dataset validation
 - 🎨 Rich, colorful interface
 - 🔄 Interactive mode
+- 🔌 Works with any OpenAI compatible API
 
 ## Installation 🛠️
 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/ncls-p/pplx-to-dataset.git
+git clone https://github.com/ncls-p/llm-to-blog-key-points-dataset.git
 cd pplx-to-dataset
 ```
 
@@ -34,10 +35,12 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-4. Edit `.env` and add your Perplexity API key:
+4. Edit `.env` and add your API configuration:
 
 ```
-PERPLEXITY_API_KEY=pplx-your-api-key-here
+OPENAI_COMPATIBLE_API_KEY=your-api-key-here
+OPENAI_COMPATIBLE_API_URL=https://api.openai.com
+OPENAI_COMPATIBLE_MODEL=gpt-3.5-turbo
 ```
 
 ## Usage 📚
@@ -106,17 +109,29 @@ The tool maintains the following format for each entry:
 {
   "instruction": "",
   "input": "Full article content",
-  "output": "Key points extracted by Perplexity AI"
+  "output": "Key points extracted by the AI"
 }
 ```
 
 ## Environment Variables 🔐
 
-- `PERPLEXITY_API_KEY`: Your Perplexity AI API key
-  - Can be set in `.env` file
-  - Can be managed through the interactive menu
+- `OPENAI_COMPATIBLE_API_KEY`: Your API key
+- `OPENAI_COMPATIBLE_API_URL`: Base URL for the API (e.g., https://api.openai.com)
+- `OPENAI_COMPATIBLE_MODEL`: Model to use (e.g., gpt-3.5-turbo)
+  - All can be set in `.env` file
+  - API key can be managed through the interactive menu
   - Will prompt for input if not found
   - Option to save to `.env` when entered manually
+
+## Compatible APIs 🔌
+
+This tool works with any API that follows the OpenAI chat completions format, including:
+
+- OpenAI
+- Perplexity AI
+- Anthropic (with adapter)
+- Azure OpenAI
+- Local models (with compatible servers)
 
 ## Error Handling 🛡️
 
@@ -130,5 +145,4 @@ The tool includes comprehensive error handling for:
 
 ## Acknowledgments 🙏
 
-- Powered by [Perplexity AI](https://docs.perplexity.ai/)
 - Built with [Typer](https://typer.tiangolo.com/) and [Rich](https://rich.readthedocs.io/)
