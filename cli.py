@@ -2,8 +2,9 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Dict, Any
 import re
+import requests
 
 import questionary
 import typer
@@ -20,7 +21,7 @@ from rich.progress import (
 from rich.table import Table
 from rich.text import Text
 
-from enhance_dataset import OpenAICompatibleEnhancer
+from enhance_dataset import OpenAICompatibleEnhancer, logger
 from convert_to_sharegpt import convert_dataset
 
 # Load environment variables
@@ -280,6 +281,7 @@ def main_menu():
                 "🧹 Clean Existing Dataset",
                 "📊 View Dataset Info",
                 "✅ Validate Dataset",
+                "🔍 Verify Dataset Key Points",
                 "🔄 Convert to ShareGPT Format",
                 "🔑 Manage API Key",
                 "❌ Exit",
@@ -293,7 +295,14 @@ def main_menu():
             backup = questionary.confirm(
                 "Create backup before processing?", default=True
             ).ask()
-            process(dataset_path=Path(dataset_path), backup=backup)
+            verify_points = questionary.confirm(
+                "Verify key points against original content?", default=False
+            ).ask()
+            process(
+                dataset_path=Path(dataset_path),
+                backup=backup,
+                verify_points=verify_points,
+            )
 
         elif choice == "🧹 Clean Existing Dataset":
             dataset_path = questionary.path(
@@ -314,15 +323,33 @@ def main_menu():
             dataset_path = questionary.path(
                 "Enter dataset path:", default="./dataset.json"
             ).ask()
-            validate(Path(dataset_path))
+            validate(dataset_path=Path(dataset_path))
+
+        elif choice == "🔍 Verify Dataset Key Points":
+            input_dataset = questionary.path(
+                "Enter input dataset path:", default="./dataset.json"
+            ).ask()
+            output_dataset = questionary.path(
+                "Enter output dataset path (leave empty for default):", default=""
+            ).ask()
+            backup = questionary.confirm(
+                "Create backup before processing?", default=True
+            ).ask()
+
+            # Handle empty output path
+            output_path = Path(output_dataset) if output_dataset else None
+            verify_dataset(
+                input_dataset=Path(input_dataset),
+                output_dataset=output_path,
+                backup=backup,
+            )
 
         elif choice == "🔄 Convert to ShareGPT Format":
             input_path = questionary.path(
                 "Enter input dataset path:", default="./dataset.json"
             ).ask()
             output_path = questionary.path(
-                "Enter output path for ShareGPT format:",
-                default="./dataset_sharegpt.json",
+                "Enter output path:", default="./dataset_sharegpt.json"
             ).ask()
             convert_to_sharegpt(
                 input_path=Path(input_path), output_path=Path(output_path)
@@ -346,6 +373,11 @@ def process(
     ),
     backup: bool = typer.Option(
         True, "--backup/--no-backup", help="Create backup before processing"
+    ),
+    verify_points: bool = typer.Option(
+        False,
+        "--verify-points",
+        help="Verify key points against original content using Bespoke-MiniCheck",
     ),
 ):
     """Process URLs and enhance your dataset with OpenAI compatible API."""
@@ -378,27 +410,354 @@ def process(
         task = progress.add_task("Processing URLs...", total=len(urls))
 
         def progress_callback(url: str):
-            progress.advance(task)
-            console.print(f"✅ Processed: {url}", style="green")
+            progress.update(task, advance=1, description=f"Processed: {url}")
 
-        # Add progress callback to enhancer
-        original_update = enhancer.update_dataset
+        # Process each URL
+        for url in urls:
+            progress_message = f"Processing: {url}"
+            if verify_points:
+                progress_message += " (with fact-checking)"
+            progress.update(task, description=progress_message)
 
-        def update_with_progress(*args, **kwargs):
-            result = original_update(*args, **kwargs)
-            progress_callback(args[1] if isinstance(args[1], str) else "batch")
-            return result
-
-        enhancer.update_dataset = update_with_progress
-
-        # Process URLs
-        enhancer.update_dataset(dataset_path, urls, backup=backup)
+            try:
+                enhancer.update_dataset(
+                    dataset_path, url, backup=backup, verify_points=verify_points
+                )
+                progress_callback(url)
+            except Exception as e:
+                console.print(f"\n❌ Error processing {url}: {e}", style="red")
 
     # Show completion message
-    console.print("\n🎉 Processing complete!", style="bold green")
+    console.print(
+        f"\n✅ Processing complete! Dataset saved to {dataset_path}", style="green"
+    )
 
-    # Show dataset statistics
-    show_dataset_info(dataset_path)
+    # If verification was enabled, show a summary
+    if verify_points:
+        console.print("\n🔍 Fact-checking summary:", style="bold cyan")
+        console.print(
+            "Key points were verified against the original content using Bespoke-MiniCheck.",
+            style="cyan",
+        )
+
+        # Calculate verification statistics
+        try:
+            with open(dataset_path, "r", encoding="utf-8") as f:
+                dataset = json.load(f)
+
+            # Calculate total points across all entries
+            total_accurate = 0
+            total_inaccurate = 0
+            total_uncertain = 0
+            entries_with_verification = 0
+
+            for entry in dataset:
+                if "verification_results" in entry:
+                    entries_with_verification += 1
+                    total_accurate += len(
+                        entry["verification_results"].get("accurate", [])
+                    )
+                    total_inaccurate += len(
+                        entry["verification_results"].get("inaccurate", [])
+                    )
+                    total_uncertain += len(
+                        entry["verification_results"].get("uncertain", [])
+                    )
+
+            total_all_points = total_accurate + total_inaccurate + total_uncertain
+
+            if total_all_points > 0:
+                console.print("\n📊 Verification Statistics:", style="bold cyan")
+                console.print(
+                    f"  - Entries with verification: {entries_with_verification}/{len(dataset)}",
+                    style="cyan",
+                )
+                console.print(
+                    f"  - Total key points verified: {total_all_points}", style="cyan"
+                )
+                console.print(
+                    f"  - Accurate: {total_accurate} ({total_accurate / total_all_points * 100:.1f}%)",
+                    style="green",
+                )
+                console.print(
+                    f"  - Inaccurate: {total_inaccurate} ({total_inaccurate / total_all_points * 100:.1f}%)",
+                    style="red",
+                )
+                console.print(
+                    f"  - Uncertain: {total_uncertain} ({total_uncertain / total_all_points * 100:.1f}%)",
+                    style="yellow",
+                )
+        except Exception as e:
+            console.print(
+                f"Could not calculate detailed statistics: {e}", style="yellow"
+            )
+
+        console.print(
+            "\nTo view the verification results in the dataset, you can use:",
+            style="cyan",
+        )
+        console.print(
+            f"  - python -m json.tool {dataset_path} | grep -A 20 verification_results",
+            style="yellow",
+        )
+
+
+@app.command()
+def verify_dataset(
+    input_dataset: Path = typer.Argument(..., help="Path to the input dataset file"),
+    output_dataset: Optional[Path] = typer.Argument(
+        None,
+        help="Path to save the verified dataset (defaults to input_dataset_verified.json)",
+    ),
+    backup: bool = typer.Option(
+        True, "--backup/--no-backup", help="Create backup before processing"
+    ),
+):
+    """Verify key points in an existing dataset against their original content using Bespoke-MiniCheck."""
+    # Check if input dataset exists
+    if not input_dataset.exists():
+        console.print(f"\n❌ Dataset file not found: {input_dataset}", style="red")
+        raise typer.Exit(1)
+
+    # Get API key
+    api_key = get_api_key()
+
+    # Initialize enhancer
+    enhancer = OpenAICompatibleEnhancer(api_key)
+
+    # Check if Ollama is available
+    try:
+        ollama_url = os.getenv(
+            "OLLAMA_API_URL", "http://localhost:11434/v1/chat/completions"
+        )
+        response = requests.get(ollama_url.replace("/v1/chat/completions", "/api/tags"))
+        if response.status_code != 200:
+            console.print(
+                "\n⚠️ Warning: Could not connect to Ollama API. Make sure Ollama is running.",
+                style="yellow",
+            )
+            if not questionary.confirm("Continue anyway?").ask():
+                console.print("\n❌ Operation cancelled", style="yellow")
+                raise typer.Exit()
+    except Exception:
+        console.print(
+            "\n⚠️ Warning: Could not connect to Ollama API. Make sure Ollama is running.",
+            style="yellow",
+        )
+        if not questionary.confirm("Continue anyway?").ask():
+            console.print("\n❌ Operation cancelled", style="yellow")
+            raise typer.Exit()
+
+    # Confirm verification
+    console.print(f"\n🔍 Verifying dataset: {input_dataset}", style="bold cyan")
+    if not questionary.confirm(
+        "This may take a while depending on the dataset size. Continue?"
+    ).ask():
+        console.print("\n❌ Operation cancelled", style="yellow")
+        raise typer.Exit()
+
+    # Load dataset to get total entries for progress bar
+    try:
+        with open(input_dataset, "r", encoding="utf-8") as f:
+            dataset = json.load(f)
+        total_entries = len(dataset)
+    except Exception as e:
+        console.print(f"\n❌ Error loading dataset: {e}", style="red")
+        raise typer.Exit(1)
+
+    # Create a custom enhancer class that updates the progress bar
+    class ProgressEnhancer(OpenAICompatibleEnhancer):
+        def verify_existing_dataset(
+            self, file_path, output_file_path=None, backup=True
+        ):
+            file_path = Path(file_path)
+            if not file_path.exists():
+                logger.error(f"Dataset file not found: {file_path}")
+                return
+
+            # Set default output path if not provided
+            if output_file_path is None:
+                output_file_path = file_path.with_stem(f"{file_path.stem}_verified")
+            else:
+                output_file_path = Path(output_file_path)
+
+            # Load dataset
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    dataset = json.load(f)
+
+                if backup:
+                    backup_path = file_path.with_suffix(".json.backup")
+                    with open(backup_path, "w", encoding="utf-8") as f:
+                        json.dump(dataset, f, ensure_ascii=False, indent=2)
+                    logger.info(f"Created backup at: {backup_path}")
+            except json.JSONDecodeError:
+                logger.error(f"Error reading {file_path}. Invalid JSON.")
+                return
+            except Exception as e:
+                logger.error(f"Error reading {file_path}: {e}")
+                return
+
+            # Process each entry with progress bar
+            total_entries = len(dataset)
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                console=console,
+            ) as progress:
+                task = progress.add_task(
+                    "Verifying dataset entries...", total=total_entries
+                )
+
+                verified_count = 0
+                skipped_count = 0
+
+                for i, entry in enumerate(dataset):
+                    progress.update(
+                        task, description=f"Verifying entry {i + 1}/{total_entries}"
+                    )
+
+                    content = entry.get("input")
+                    key_points = entry.get("output")
+
+                    if not content or not key_points:
+                        logger.warning(
+                            f"Entry {i + 1} is missing content or key points, skipping"
+                        )
+                        skipped_count += 1
+                        progress.update(task, advance=1)
+                        continue
+
+                    verification_results = self.test_key_points(content, key_points)
+                    # Ensure entry is treated as a dictionary with string keys and any values
+                    entry_dict: Dict[str, Any] = entry
+                    entry_dict["verification_results"] = verification_results
+
+                    # Log verification summary
+                    accurate_count = len(verification_results["accurate"])
+                    inaccurate_count = len(verification_results["inaccurate"])
+                    uncertain_count = len(verification_results["uncertain"])
+                    total_points = accurate_count + inaccurate_count + uncertain_count
+
+                    if total_points > 0:
+                        verified_count += 1
+                        logger.info(
+                            f"  - Accurate: {accurate_count}/{total_points} ({accurate_count / total_points * 100:.1f}%)"
+                        )
+                        logger.info(
+                            f"  - Inaccurate: {inaccurate_count}/{total_points} ({inaccurate_count / total_points * 100:.1f}%)"
+                        )
+                        logger.info(
+                            f"  - Uncertain: {uncertain_count}/{total_points} ({uncertain_count / total_points * 100:.1f}%)"
+                        )
+                    else:
+                        skipped_count += 1
+                        logger.warning(f"  - No points were extracted for verification")
+
+                    # Save intermediate results every 5 entries
+                    if (i + 1) % 5 == 0 or i == total_entries - 1:
+                        try:
+                            with open(output_file_path, "w", encoding="utf-8") as f:
+                                json.dump(dataset, f, ensure_ascii=False, indent=2)
+                            logger.info(
+                                f"Saved intermediate results to {output_file_path}"
+                            )
+                        except Exception as e:
+                            logger.error(f"Error saving intermediate results: {e}")
+
+                    progress.update(task, advance=1)
+
+            # Final save
+            try:
+                with open(output_file_path, "w", encoding="utf-8") as f:
+                    json.dump(dataset, f, ensure_ascii=False, indent=2)
+                logger.info(
+                    f"Successfully saved verified dataset to: {output_file_path}"
+                )
+
+                # Show summary
+                console.print(f"\n✅ Verification complete!", style="bold green")
+                console.print(f"  - Total entries: {total_entries}", style="cyan")
+                console.print(
+                    f"  - Successfully verified: {verified_count}", style="green"
+                )
+                console.print(
+                    f"  - Skipped (no points to verify): {skipped_count}",
+                    style="yellow",
+                )
+                console.print(
+                    f"  - Verified dataset saved to: {output_file_path}", style="cyan"
+                )
+
+                # Add detailed verification statistics
+                if verified_count > 0:
+                    # Calculate total points across all entries
+                    total_accurate = 0
+                    total_inaccurate = 0
+                    total_uncertain = 0
+                    total_all_points = 0
+
+                    for entry in dataset:
+                        if "verification_results" in entry:
+                            total_accurate += len(
+                                entry["verification_results"].get("accurate", [])
+                            )
+                            total_inaccurate += len(
+                                entry["verification_results"].get("inaccurate", [])
+                            )
+                            total_uncertain += len(
+                                entry["verification_results"].get("uncertain", [])
+                            )
+
+                    total_all_points = (
+                        total_accurate + total_inaccurate + total_uncertain
+                    )
+
+                    if total_all_points > 0:
+                        console.print(
+                            "\n📊 Verification Statistics:", style="bold cyan"
+                        )
+                        console.print(
+                            f"  - Total key points verified: {total_all_points}",
+                            style="cyan",
+                        )
+                        console.print(
+                            f"  - Accurate: {total_accurate} ({total_accurate / total_all_points * 100:.1f}%)",
+                            style="green",
+                        )
+                        console.print(
+                            f"  - Inaccurate: {total_inaccurate} ({total_inaccurate / total_all_points * 100:.1f}%)",
+                            style="red",
+                        )
+                        console.print(
+                            f"  - Uncertain: {total_uncertain} ({total_uncertain / total_all_points * 100:.1f}%)",
+                            style="yellow",
+                        )
+
+                        console.print(
+                            "\n💡 Fact-checking performed using Bespoke-MiniCheck model",
+                            style="cyan",
+                        )
+                        console.print(
+                            "   For more details on each entry, examine the verification_results field in the dataset",
+                            style="cyan",
+                        )
+
+            except Exception as e:
+                logger.error(f"Error saving verified dataset: {e}")
+
+    # Verify dataset with progress bar
+    try:
+        progress_enhancer = ProgressEnhancer(api_key)
+        progress_enhancer.verify_existing_dataset(
+            input_dataset, output_dataset, backup=backup
+        )
+    except Exception as e:
+        console.print(f"\n❌ Error verifying dataset: {e}", style="red")
+        raise typer.Exit(1)
 
 
 @app.command()

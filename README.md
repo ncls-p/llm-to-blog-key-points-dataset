@@ -14,6 +14,7 @@ A powerful CLI tool to enhance your dataset using any OpenAI compatible API. Thi
 - 🔄 Interactive mode
 - 🔌 Works with any OpenAI compatible API
 - 📝 ShareGPT format conversion for fine-tuning
+- ✅ Fact-checking of key points using Ollama's Bespoke-MiniCheck model
 
 ## Installation 🛠️
 
@@ -145,10 +146,74 @@ This format is compatible with many fine-tuning tools and datasets like [FineTom
 - `OPENAI_COMPATIBLE_API_KEY`: Your API key
 - `OPENAI_COMPATIBLE_API_URL`: Base URL for the API (e.g., https://api.openai.com)
 - `OPENAI_COMPATIBLE_MODEL`: Model to use (e.g., gpt-3.5-turbo)
+- `OLLAMA_API_URL`: URL for Ollama API (default: http://localhost:11434/v1/chat/completions)
+- `FACT_CHECK_MODEL`: Model to use for fact-checking (default: bespoke-minicheck)
   - All can be set in `.env` file
   - API key can be managed through the interactive menu
   - Will prompt for input if not found
   - Option to save to `.env` when entered manually
+
+## Fact-Checking Functionality ✅
+
+The tool now includes the ability to verify the accuracy of extracted key points against the original content using Ollama's Bespoke-MiniCheck model.
+
+### How It Works
+
+1. Each key point is individually verified against the original article content
+2. The fact-checking model classifies each point as:
+   - ✅ **Consistent**: The key point is accurate and supported by the content
+   - ❌ **Inconsistent**: The key point contains inaccuracies or is not supported by the content
+   - ❓ **Uncertain**: The model cannot determine the accuracy with confidence
+
+### Using Fact-Checking
+
+When processing URLs:
+
+```bash
+python cli.py process --dataset "my_dataset.json" --verify-points
+```
+
+To verify an existing dataset:
+
+```bash
+python cli.py verify-dataset "my_dataset.json" "my_verified_dataset.json"
+```
+
+### Verification Results
+
+The verification results are stored in the dataset as a new field:
+
+```json
+{
+  "instruction": "",
+  "input": "Full article content",
+  "output": "Key points extracted by the AI",
+  "verification_results": {
+    "accurate": [
+      {
+        "point": "Point that was verified as accurate",
+        "verification": {
+          "is_accurate": true,
+          "explanation": "Consistent: This point is supported by the document...",
+          "raw_response": "Full response from the fact-checking model"
+        }
+      }
+    ],
+    "inaccurate": [...],
+    "uncertain": [...]
+  }
+}
+```
+
+### Requirements
+
+To use the fact-checking functionality, you need:
+
+1. [Ollama](https://ollama.com/) installed and running locally (or accessible via network)
+2. The [Bespoke-MiniCheck](https://ollama.com/library/bespoke-minicheck) model pulled into Ollama:
+   ```bash
+   ollama pull bespoke-minicheck
+   ```
 
 ## Compatible APIs 🔌
 

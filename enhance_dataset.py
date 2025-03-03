@@ -4,7 +4,7 @@ import re
 import time
 import os
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Tuple, Any
 from dotenv import load_dotenv
 
 import requests
@@ -32,6 +32,15 @@ class OpenAICompatibleEnhancer:
         }
         self.max_retries = max_retries
         self.retry_delay = retry_delay
+
+        # Ollama API settings for fact-checking
+        self.ollama_api_url = os.getenv(
+            "OLLAMA_API_URL", "http://localhost:11434/v1/chat/completions"
+        )
+        self.ollama_headers = {
+            "Content-Type": "application/json",
+        }
+        self.fact_check_model = os.getenv("FACT_CHECK_MODEL", "bespoke-minicheck")
 
     def clean_references(self, text: str) -> str:
         """Remove reference artifacts from text."""
@@ -108,8 +117,150 @@ class OpenAICompatibleEnhancer:
                     logger.error("Max retries reached")
                     return None
 
-    def process_single_url(self, url: str) -> Optional[Dict]:
-        """Process a single URL and return article data"""
+    def test_key_points(self, content: str, key_points: str) -> Dict[str, List[Dict]]:
+        """
+        Test each key point against the original content using the Bespoke-MiniCheck model.
+
+        Args:
+            content: The original article content
+            key_points: The extracted key points as a string
+
+        Returns:
+            Dictionary with 'accurate' and 'inaccurate' lists of key points and their verification results
+        """
+        # Extract individual key points from the bullet list
+        points = [
+            p.strip().lstrip("*").strip()
+            for p in key_points.split("\n")
+            if p.strip() and not p.startswith("Here are the key points")
+        ]
+
+        # Check if we have any valid points to verify
+        if not points:
+            logger.warning(
+                "No valid bullet points found in the key_points string. Expected format: '* Point 1\\n* Point 2'"
+            )
+            # Try a more lenient extraction - treat each sentence as a point
+            sentences = [
+                s.strip() for s in re.split(r"(?<=[.!?])\s+", key_points) if s.strip()
+            ]
+            if sentences:
+                logger.info(
+                    f"Extracted {len(sentences)} sentences to verify instead of bullet points"
+                )
+                points = sentences
+            else:
+                logger.warning(
+                    "Could not extract any sentences either. Verification will be skipped."
+                )
+
+        results = {"accurate": [], "inaccurate": [], "uncertain": []}
+
+        for point in points:
+            if not point:  # Skip empty points
+                continue
+
+            verification = self._verify_point_with_ollama(content, point)
+
+            if verification["is_accurate"]:
+                results["accurate"].append(
+                    {"point": point, "verification": verification}
+                )
+            elif verification["is_accurate"] is False:  # Explicitly False, not None
+                results["inaccurate"].append(
+                    {"point": point, "verification": verification}
+                )
+            else:
+                results["uncertain"].append(
+                    {"point": point, "verification": verification}
+                )
+
+        return results
+
+    def _verify_point_with_ollama(self, content: str, point: str) -> Dict:
+        """
+        Verify a single key point against the content using Ollama's Bespoke-MiniCheck model.
+
+        Args:
+            content: The original article content
+            point: A single key point to verify
+
+        Returns:
+            Dictionary with verification results
+        """
+        # Truncate content if too long to fit in context window
+        max_content_length = 6000  # Adjust based on model's context window
+        if len(content) > max_content_length:
+            content = content[:max_content_length] + "..."
+
+        # According to Bespoke-MiniCheck documentation, the model expects a simple format:
+        # Document: {document}
+        # Claim: {claim}
+        # And responds with "Yes" or "No"
+        messages = [
+            {
+                "role": "user",
+                "content": f"Document: {content}\n\nClaim: {point}\n\nIs this claim consistent with the document?",
+            },
+        ]
+
+        payload = {
+            "model": self.fact_check_model,
+            "messages": messages,
+            "temperature": 0.1,  # Low temperature for more deterministic results
+        }
+
+        for attempt in range(self.max_retries):
+            try:
+                response = requests.post(
+                    self.ollama_api_url,
+                    headers=self.ollama_headers,
+                    json=payload,
+                    timeout=60,
+                )
+                response.raise_for_status()
+
+                result = response.json()["choices"][0]["message"]["content"]
+
+                # Parse the result - Bespoke-MiniCheck responds with "Yes" or "No"
+                is_accurate = None
+                if result.lower().startswith("yes"):
+                    is_accurate = True
+                elif result.lower().startswith("no"):
+                    is_accurate = False
+                # Otherwise, leave as None (uncertain)
+
+                return {
+                    "is_accurate": is_accurate,
+                    "explanation": result,
+                    "raw_response": result,
+                }
+
+            except requests.exceptions.RequestException as e:
+                logger.warning(
+                    f"Attempt {attempt + 1} failed when verifying point: {e}"
+                )
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.retry_delay)
+                else:
+                    logger.error("Max retries reached during fact verification")
+                    return {
+                        "is_accurate": None,
+                        "explanation": f"Error: {str(e)}",
+                        "raw_response": None,
+                    }
+
+        # Ensure we always return a value even if the loop completes without returning
+        return {
+            "is_accurate": None,
+            "explanation": "Failed to verify after maximum retries",
+            "raw_response": None,
+        }
+
+    def process_single_url(
+        self, url: str, verify_points: bool = False
+    ) -> Optional[Dict[str, Any]]:
+        """Process a single URL and return article data with optional verification"""
         content = self.extract_webpage_content(url)
         if not content:
             return None
@@ -118,13 +269,44 @@ class OpenAICompatibleEnhancer:
         if not key_points:
             return None
 
-        return {"instruction": "", "input": content, "output": key_points}
+        result: Dict[str, Any] = {
+            "instruction": "",
+            "input": content,
+            "output": key_points,
+        }
+
+        # If verification is requested, add verification results
+        if verify_points:
+            verification_results = self.test_key_points(content, key_points)
+            # Store verification results as a separate field, not overwriting existing fields
+            result["verification_results"] = verification_results
+
+            # Log verification summary
+            accurate_count = len(verification_results["accurate"])
+            inaccurate_count = len(verification_results["inaccurate"])
+            uncertain_count = len(verification_results["uncertain"])
+            total_points = accurate_count + inaccurate_count + uncertain_count
+
+            if total_points > 0:
+                logger.info(f"Verification results for {url}:")
+                logger.info(
+                    f"  - Accurate: {accurate_count}/{total_points} ({accurate_count / total_points * 100:.1f}%)"
+                )
+                logger.info(
+                    f"  - Inaccurate: {inaccurate_count}/{total_points} ({inaccurate_count / total_points * 100:.1f}%)"
+                )
+                logger.info(
+                    f"  - Uncertain: {uncertain_count}/{total_points} ({uncertain_count / total_points * 100:.1f}%)"
+                )
+
+        return result
 
     def update_dataset(
         self,
         file_path: Union[str, Path],
         urls: Union[str, List[str]],
         backup: bool = True,
+        verify_points: bool = False,
     ):
         """Update existing dataset with new entries from URLs"""
         # Load existing dataset
@@ -155,7 +337,7 @@ class OpenAICompatibleEnhancer:
         # Process URLs
         for url in urls:
             logger.info(f"Processing URL: {url}")
-            result = self.process_single_url(url)
+            result = self.process_single_url(url, verify_points=verify_points)
             if result:
                 dataset.append(result)
                 logger.info(f"Successfully processed: {url}")
@@ -168,6 +350,103 @@ class OpenAICompatibleEnhancer:
             logger.info(f"Successfully updated dataset at: {file_path}")
         except Exception as e:
             logger.error(f"Error saving dataset: {e}")
+
+    def verify_existing_dataset(
+        self,
+        file_path: Union[str, Path],
+        output_file_path: Optional[Union[str, Path]] = None,
+        backup: bool = True,
+    ):
+        """
+        Verify key points in an existing dataset against their original content.
+
+        Args:
+            file_path: Path to the dataset file
+            output_file_path: Path to save the verified dataset (defaults to original with _verified suffix)
+            backup: Whether to create a backup of the original file
+        """
+        file_path = Path(file_path)
+        if not file_path.exists():
+            logger.error(f"Dataset file not found: {file_path}")
+            return
+
+        # Set default output path if not provided
+        if output_file_path is None:
+            output_file_path = file_path.with_stem(f"{file_path.stem}_verified")
+        else:
+            output_file_path = Path(output_file_path)
+
+        # Load dataset
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                dataset = json.load(f)
+
+            if backup:
+                backup_path = file_path.with_suffix(".json.backup")
+                with open(backup_path, "w", encoding="utf-8") as f:
+                    json.dump(dataset, f, ensure_ascii=False, indent=2)
+                logger.info(f"Created backup at: {backup_path}")
+        except json.JSONDecodeError:
+            logger.error(f"Error reading {file_path}. Invalid JSON.")
+            return
+        except Exception as e:
+            logger.error(f"Error reading {file_path}: {e}")
+            return
+
+        # Process each entry
+        total_entries = len(dataset)
+        for i, entry in enumerate(dataset):
+            logger.info(f"Verifying entry {i + 1}/{total_entries}")
+
+            content = entry.get("input")
+            key_points = entry.get("output")
+
+            if not content or not key_points:
+                logger.warning(
+                    f"Entry {i + 1} is missing content or key points, skipping"
+                )
+                continue
+
+            verification_results = self.test_key_points(content, key_points)
+            # Ensure entry is treated as a dictionary with string keys and any values
+            entry_dict: Dict[str, Any] = entry
+            entry_dict["verification_results"] = verification_results
+
+            # Log verification summary
+            accurate_count = len(verification_results["accurate"])
+            inaccurate_count = len(verification_results["inaccurate"])
+            uncertain_count = len(verification_results["uncertain"])
+            total_points = accurate_count + inaccurate_count + uncertain_count
+
+            if total_points > 0:
+                logger.info(
+                    f"  - Accurate: {accurate_count}/{total_points} ({accurate_count / total_points * 100:.1f}%)"
+                )
+                logger.info(
+                    f"  - Inaccurate: {inaccurate_count}/{total_points} ({inaccurate_count / total_points * 100:.1f}%)"
+                )
+                logger.info(
+                    f"  - Uncertain: {uncertain_count}/{total_points} ({uncertain_count / total_points * 100:.1f}%)"
+                )
+            else:
+                logger.warning(f"  - No points were extracted for verification")
+
+            # Save intermediate results every 5 entries
+            if (i + 1) % 5 == 0 or i == total_entries - 1:
+                try:
+                    with open(output_file_path, "w", encoding="utf-8") as f:
+                        json.dump(dataset, f, ensure_ascii=False, indent=2)
+                    logger.info(f"Saved intermediate results to {output_file_path}")
+                except Exception as e:
+                    logger.error(f"Error saving intermediate results: {e}")
+
+        # Final save
+        try:
+            with open(output_file_path, "w", encoding="utf-8") as f:
+                json.dump(dataset, f, ensure_ascii=False, indent=2)
+            logger.info(f"Successfully saved verified dataset to: {output_file_path}")
+        except Exception as e:
+            logger.error(f"Error saving verified dataset: {e}")
 
 
 def main():
@@ -182,8 +461,11 @@ def main():
     # Example usage - replace with your URLs
     urls = ["https://example.com/article1", "https://example.com/article2"]
 
-    # Update the dataset with new URLs
-    enhancer.update_dataset("./dataset.json", urls)
+    # Update the dataset with new URLs and verify key points
+    enhancer.update_dataset("./dataset.json", urls, verify_points=True)
+
+    # Alternatively, verify an existing dataset
+    # enhancer.verify_existing_dataset("./dataset.json")
 
 
 if __name__ == "__main__":
