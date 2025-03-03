@@ -13,6 +13,7 @@ A powerful CLI tool to enhance your dataset using any OpenAI compatible API. Thi
 - 🎨 Rich, colorful interface
 - 🔄 Interactive mode
 - 🔌 Works with any OpenAI compatible API
+- 📝 ShareGPT format conversion for fine-tuning
 
 ## Installation 🛠️
 
@@ -56,8 +57,10 @@ python cli.py
 This will open the interactive menu with the following options:
 
 - 🌐 Process URLs: Add new articles to your dataset
+- 🧹 Clean Existing Dataset: Clean references from dataset entries
 - 📊 View Dataset Info: See statistics about your dataset
 - ✅ Validate Dataset: Check for any invalid entries
+- 🔄 Convert to ShareGPT Format: Convert dataset to ShareGPT format for fine-tuning
 - 🔑 Manage API Key: View, update, or remove your API key
 - ❌ Exit: Close the application
 
@@ -75,6 +78,12 @@ Validate dataset:
 
 ```bash
 python cli.py validate "my_dataset.json"
+```
+
+Convert to ShareGPT format:
+
+```bash
+python cli.py convert-to-sharegpt "my_dataset.json" "my_dataset_sharegpt.json"
 ```
 
 ## Features in Detail 🔍
@@ -103,6 +112,8 @@ python cli.py validate "my_dataset.json"
 
 ## Dataset Format 📝
 
+### Standard Format
+
 The tool maintains the following format for each entry:
 
 ```json
@@ -112,6 +123,22 @@ The tool maintains the following format for each entry:
   "output": "Key points extracted by the AI"
 }
 ```
+
+### ShareGPT Format
+
+You can convert your dataset to ShareGPT format for fine-tuning:
+
+```json
+{
+  "conversations": [
+    { "from": "human", "value": "Full article content" },
+    { "from": "gpt", "value": "Key points extracted by the AI" }
+  ],
+  "source": "article-key-points"
+}
+```
+
+This format is compatible with many fine-tuning tools and datasets like [FineTome-100k](https://huggingface.co/datasets/mlabonne/FineTome-100k).
 
 ## Environment Variables 🔐
 

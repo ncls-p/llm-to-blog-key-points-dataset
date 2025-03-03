@@ -21,6 +21,7 @@ from rich.table import Table
 from rich.text import Text
 
 from enhance_dataset import OpenAICompatibleEnhancer
+from convert_to_sharegpt import convert_dataset
 
 # Load environment variables
 load_dotenv()
@@ -279,6 +280,7 @@ def main_menu():
                 "🧹 Clean Existing Dataset",
                 "📊 View Dataset Info",
                 "✅ Validate Dataset",
+                "🔄 Convert to ShareGPT Format",
                 "🔑 Manage API Key",
                 "❌ Exit",
             ],
@@ -313,6 +315,18 @@ def main_menu():
                 "Enter dataset path:", default="./dataset.json"
             ).ask()
             validate(Path(dataset_path))
+
+        elif choice == "🔄 Convert to ShareGPT Format":
+            input_path = questionary.path(
+                "Enter input dataset path:", default="./dataset.json"
+            ).ask()
+            output_path = questionary.path(
+                "Enter output path for ShareGPT format:",
+                default="./dataset_sharegpt.json",
+            ).ask()
+            convert_to_sharegpt(
+                input_path=Path(input_path), output_path=Path(output_path)
+            )
 
         elif choice == "🔑 Manage API Key":
             manage_api_key()
@@ -425,6 +439,55 @@ def validate(
 
     except Exception as e:
         console.print(f"\n❌ Error validating dataset: {e}", style="bold red")
+
+
+@app.command()
+def convert_to_sharegpt(
+    input_path: Path = typer.Argument(
+        "./dataset.json", help="Path to the input dataset file"
+    ),
+    output_path: Path = typer.Argument(
+        "./dataset_sharegpt.json", help="Path to save the converted dataset"
+    ),
+):
+    """Convert dataset to ShareGPT format for fine-tuning."""
+    try:
+        if not input_path.exists():
+            console.print(
+                f"\n❌ Input file {input_path} does not exist", style="bold red"
+            )
+            raise typer.Exit(1)
+
+        console.print(
+            f"\n🔄 Converting dataset to ShareGPT format...", style="bold cyan"
+        )
+
+        # Create a progress spinner
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            progress.add_task("Converting...", total=None)
+
+            # Perform the conversion
+            convert_dataset(input_path, output_path)
+
+        # Show success message
+        console.print(
+            f"\n✅ Successfully converted dataset to ShareGPT format!",
+            style="bold green",
+        )
+        console.print(f"   Output saved to: {output_path}", style="green")
+
+        # Show file size
+        if output_path.exists():
+            size_kb = output_path.stat().st_size / 1024
+            console.print(f"   File size: {size_kb:.2f} KB", style="green")
+
+    except Exception as e:
+        console.print(f"\n❌ Error converting dataset: {e}", style="bold red")
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
