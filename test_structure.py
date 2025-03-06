@@ -5,7 +5,15 @@ This script imports and initializes key components from each layer to ensure the
 """
 
 import logging
-from pathlib import Path
+
+from llm_key_points.adapters.repositories import (
+    BeautifulSoupWebRepository,
+    JsonDatasetRepository,
+)
+from llm_key_points.core.entities import Dataset, DatasetEntry
+
+# Interface layer imports
+from llm_key_points.interfaces.console import RichPresenter
 
 # Set up logging
 logging.basicConfig(
@@ -14,21 +22,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 logger.info("Testing clean architecture imports...")
-
-# Core layer imports
-from llm_key_points.core.entities import Dataset, DatasetEntry
-from llm_key_points.core.use_cases import ExtractKeyPointsUseCase, VerifyDatasetUseCase
-
-# Adapter layer imports
-from llm_key_points.adapters.repositories import (
-    JsonDatasetRepository,
-    BeautifulSoupWebRepository,
-)
-from llm_key_points.adapters.api import OpenAICompatibleExtractor
-from llm_key_points.adapters.verification import OllamaFactChecker
-
-# Interface layer imports
-from llm_key_points.interfaces.console import RichPresenter
 
 logger.info("All imports successful!")
 

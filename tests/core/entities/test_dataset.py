@@ -5,7 +5,6 @@ Tests for the Dataset and DatasetEntry entities.
 import json
 import tempfile
 from pathlib import Path
-import pytest
 
 from llm_key_points.core.entities.dataset import Dataset
 from llm_key_points.core.entities.dataset_entry import DatasetEntry, VerificationResults

@@ -3,11 +3,9 @@ Tests for the CLI application.
 """
 
 import os
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
-import typer
 from typer.testing import CliRunner
 
 from llm_key_points.interfaces.cli.cli_app import app, validate_api_key, validate_url

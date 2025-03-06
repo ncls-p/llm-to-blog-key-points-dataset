@@ -3,12 +3,11 @@ Use cases for verifying key points in existing datasets.
 """
 
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 from ..entities.dataset import Dataset
-from ..entities.dataset_entry import DatasetEntry
-from ..interfaces.repositories import DatasetRepository
 from ..interfaces.ai_services import FactChecker
+from ..interfaces.repositories import DatasetRepository
 
 
 class VerifyDatasetUseCase:

@@ -2,10 +2,10 @@
 Core entity representing a dataset of article key points.
 """
 
-from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional
-from pathlib import Path
 import json
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List
 
 from .dataset_entry import DatasetEntry
 

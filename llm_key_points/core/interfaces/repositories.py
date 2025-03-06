@@ -4,10 +4,9 @@ Repository interfaces for the dataset domain.
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 from ..entities.dataset import Dataset
-from ..entities.dataset_entry import DatasetEntry
 
 
 class DatasetRepository(ABC):

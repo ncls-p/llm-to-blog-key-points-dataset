@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import time
-from typing import Dict, Optional, Any
+from typing import Optional
 
 import requests
 
@@ -35,7 +35,7 @@ class OpenAICompatibleExtractor(KeyPointsExtractor):
 
         # Set up API URL
         base_api_url = os.getenv("OPENAI_COMPATIBLE_API_URL", "https://api.openai.com")
-        self.api_url = f"{base_api_url}/v1/chat/completions"
+        self.api_url = f"{base_api_url}/chat/completions"
 
         # Set up headers
         self.headers = {

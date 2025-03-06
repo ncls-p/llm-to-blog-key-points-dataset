@@ -2,15 +2,12 @@
 Tests for the key points extraction use case.
 """
 
-import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
-import pytest
-
-from llm_key_points.core.use_cases.extract_key_points import ExtractKeyPointsUseCase
 from llm_key_points.core.entities.dataset import Dataset
-from llm_key_points.core.entities.dataset_entry import DatasetEntry, VerificationResults
+from llm_key_points.core.entities.dataset_entry import VerificationResults
+from llm_key_points.core.use_cases.extract_key_points import ExtractKeyPointsUseCase
 
 
 def test_extract_from_url_success():

@@ -6,12 +6,12 @@ import logging
 import os
 import re
 import time
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict
 
 import requests
 
+from ...core.entities.dataset_entry import VerificationResults
 from ...core.interfaces.ai_services import FactChecker
-from ...core.entities.dataset_entry import VerificationResults, VerificationResult
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class OllamaFactChecker(FactChecker):
 
         # Set up API URL
         self.api_url = api_url or os.getenv(
-            "OLLAMA_API_URL", "http://localhost:11434/v1/chat/completions"
+            "OLLAMA_API_URL", "http://localhost:11434/chat/completions"
         )
 
         # Set up headers

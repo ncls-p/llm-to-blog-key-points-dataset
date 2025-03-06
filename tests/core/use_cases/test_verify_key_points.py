@@ -2,15 +2,12 @@
 Tests for the key points verification use case.
 """
 
-import tempfile
 from pathlib import Path
 from unittest.mock import Mock
 
-import pytest
-
-from llm_key_points.core.use_cases.verify_key_points import VerifyDatasetUseCase
 from llm_key_points.core.entities.dataset import Dataset
 from llm_key_points.core.entities.dataset_entry import DatasetEntry, VerificationResults
+from llm_key_points.core.use_cases.verify_key_points import VerifyDatasetUseCase
 
 
 def test_verify_dataset():

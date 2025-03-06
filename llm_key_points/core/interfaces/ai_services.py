@@ -3,7 +3,7 @@ Interfaces for AI service integrations.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, Optional
 
 from ..entities.dataset_entry import VerificationResults
 

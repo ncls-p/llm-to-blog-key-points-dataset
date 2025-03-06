@@ -2,10 +2,8 @@
 Tests for the Ollama fact checker.
 """
 
-import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-import pytest
 import requests
 
 from llm_key_points.adapters.verification import OllamaFactChecker

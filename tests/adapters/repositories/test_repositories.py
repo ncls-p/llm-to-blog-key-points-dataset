@@ -5,14 +5,13 @@ Tests for the repository adapters.
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-import pytest
 import requests
 
 from llm_key_points.adapters.repositories import (
-    JsonDatasetRepository,
     BeautifulSoupWebRepository,
+    JsonDatasetRepository,
 )
 from llm_key_points.core.entities.dataset import Dataset, DatasetEntry
 

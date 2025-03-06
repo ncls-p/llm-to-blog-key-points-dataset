@@ -3,8 +3,7 @@ Rich console presenter for CLI output.
 """
 
 import logging
-from typing import Dict, List, Any, Optional
-from pathlib import Path
+from typing import Any, Dict, List
 
 from rich.console import Console
 from rich.panel import Panel
@@ -17,8 +16,6 @@ from rich.progress import (
 )
 from rich.table import Table
 from rich.text import Text
-
-from ...core.entities.dataset import Dataset
 
 # Set up logging
 logger = logging.getLogger(__name__)

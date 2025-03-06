@@ -2,12 +2,8 @@
 Tests for the Rich console presenter.
 """
 
-from unittest.mock import Mock, patch
-
-import pytest
 from rich.console import Console
 from rich.table import Table
-from rich.panel import Panel
 
 from llm_key_points.interfaces.console import RichPresenter
 

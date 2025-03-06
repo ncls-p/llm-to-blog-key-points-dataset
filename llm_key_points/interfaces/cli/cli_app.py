@@ -3,23 +3,22 @@ Command line interface for the LLM Key Points Dataset Generator.
 """
 
 import os
-import sys
 import re
+import sys
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 
-import typer
 import questionary
+import typer
 from dotenv import load_dotenv
 
-from ..console.rich_presenter import RichPresenter
+from ...adapters.api.openai_compatible_extractor import OpenAICompatibleExtractor
 from ...adapters.repositories.json_dataset_repository import JsonDatasetRepository
 from ...adapters.repositories.web_content_repository import BeautifulSoupWebRepository
-from ...adapters.api.openai_compatible_extractor import OpenAICompatibleExtractor
 from ...adapters.verification.ollama_fact_checker import OllamaFactChecker
 from ...core.use_cases.extract_key_points import ExtractKeyPointsUseCase
 from ...core.use_cases.verify_key_points import VerifyDatasetUseCase
-from ...core.entities.dataset import Dataset
+from ..console.rich_presenter import RichPresenter
 
 # Load environment variables
 load_dotenv()
