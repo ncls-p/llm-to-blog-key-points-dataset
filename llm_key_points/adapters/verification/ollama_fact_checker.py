@@ -4,6 +4,7 @@ Implementation of fact checker using Ollama API.
 
 import logging
 import os
+import re
 import time
 from typing import Any, Dict, Optional
 

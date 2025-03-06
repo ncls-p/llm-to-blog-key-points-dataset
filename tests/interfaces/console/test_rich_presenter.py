@@ -2,13 +2,12 @@
 Tests for the Rich console presenter.
 """
 
+import pytest
 from rich.console import Console
-from rich.table import Table
 from rich.progress import ProgressColumn
+from rich.table import Table
 
 from llm_key_points.interfaces.console import RichPresenter
-
-import pytest
 
 
 @pytest.fixture

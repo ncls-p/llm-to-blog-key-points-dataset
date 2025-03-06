@@ -3,7 +3,7 @@ Core entity representing a dataset entry with article content and key points.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
 
 @dataclass

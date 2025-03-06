@@ -7,8 +7,8 @@ from typing import List, Optional
 
 from ..entities.dataset import Dataset
 from ..entities.dataset_entry import DatasetEntry
+from ..interfaces.ai_services import FactChecker, KeyPointsExtractor
 from ..interfaces.repositories import DatasetRepository, WebContentRepository
-from ..interfaces.ai_services import KeyPointsExtractor, FactChecker
 
 
 class ExtractKeyPointsUseCase:

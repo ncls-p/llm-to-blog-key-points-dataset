@@ -4,8 +4,8 @@ Tests for the Ollama fact checker.
 
 from unittest.mock import MagicMock, patch
 
-import requests
 import pytest
+import requests
 
 from llm_key_points.adapters.verification import OllamaFactChecker
 from llm_key_points.core.entities.dataset_entry import VerificationResults
@@ -209,6 +209,10 @@ def test_verify_key_points_content_truncation():
         assert len(document_content) < 7000
         assert document_content.endswith("...")
 
+        # Verify the result is as expected
+        assert result["is_accurate"] is True
+        assert "Yes" in result["explanation"]
+
 
 @pytest.fixture
 def mock_response():
@@ -238,7 +242,7 @@ def fact_checker():
         yield checker
 
 
-def test_verify_key_points_returns_correct_structure(mock_response, fact_checker):
+def test_verify_key_points_returns_correct_structure(fact_checker):
     """Test that verify_key_points returns the expected structure."""
     content = "This is a sample article."
     key_points = "* Point 1\n* Point 2"
@@ -254,3 +258,15 @@ def test_verify_key_points_returns_correct_structure(mock_response, fact_checker
     assert isinstance(results.accurate, list)
     assert isinstance(results.inaccurate, list)
     assert isinstance(results.uncertain, list)
+
+
+def test_with_mock_response_fixture(mock_response, fact_checker):
+    """Test using the mock_response fixture."""
+    with patch("requests.post") as mock_post:
+        mock_post.return_value.json.return_value = mock_response
+        mock_post.return_value.raise_for_status.return_value = None
+
+        result = fact_checker.verify_key_point("Sample text", "Sample claim")
+
+        assert result["is_accurate"] is True
+        assert "Yes" in result["explanation"]
