@@ -4,36 +4,50 @@ Implementation of fact checker using Ollama API.
 
 import logging
 import os
-import re
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import requests
 
 from ...core.entities.dataset_entry import VerificationResults
 from ...core.interfaces.ai_services import FactChecker
 
-# Set up logging
 logger = logging.getLogger(__name__)
 
 
 class OllamaFactChecker(FactChecker):
     """Implementation of FactChecker using Ollama API."""
 
+    DEFAULT_MODEL = "bespoke-minicheck"
+
     def __init__(
         self,
-        model: str = None,
-        api_url: str = None,
+        model: Optional[str] = None,
+        api_url: Optional[str] = None,
         max_retries: int = 3,
         retry_delay: int = 5,
     ):
-        self.model = model or os.getenv("FACT_CHECK_MODEL", "bespoke-minicheck")
+        """Initialize the fact checker.
+
+        Args:
+            model: Optional model name, defaults to DEFAULT_MODEL if not provided
+            api_url: Optional API URL, defaults to OLLAMA_API_URL env var or localhost
+            max_retries: Number of retries for failed requests
+            retry_delay: Delay between retries in seconds
+        """
         self.max_retries = max_retries
         self.retry_delay = retry_delay
-
-        # Set up API URL
-        self.api_url = api_url or os.getenv(
-            "OLLAMA_API_URL", "http://localhost:11434/chat/completions"
+        self.model = (
+            model
+            if model is not None
+            else os.getenv("OLLAMA_MODEL", self.DEFAULT_MODEL)
+        )
+        self.api_url = (
+            api_url
+            if api_url is not None
+            else os.getenv(
+                "OLLAMA_API_URL", "http://localhost:11434/v1/chat/completions"
+            )
         )
 
         # Set up headers

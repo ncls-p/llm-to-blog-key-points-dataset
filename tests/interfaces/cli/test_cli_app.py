@@ -8,7 +8,9 @@ from unittest.mock import Mock, patch
 import pytest
 from typer.testing import CliRunner
 
-from llm_key_points.interfaces.cli.cli_app import app, validate_api_key, validate_url
+from llm_key_points.interfaces.cli.cli_app import app
+from llm_key_points.interfaces.cli.api_key_manager import validate_api_key
+from llm_key_points.interfaces.cli.menu import validate_url
 
 runner = CliRunner()
 
@@ -42,11 +44,11 @@ def test_validate_url():
     assert validate_url("not-a-url") is False
 
 
-@patch("llm_key_points.interfaces.cli.cli_app.BeautifulSoupWebRepository")
-@patch("llm_key_points.interfaces.cli.cli_app.JsonDatasetRepository")
-@patch("llm_key_points.interfaces.cli.cli_app.OpenAICompatibleExtractor")
+@patch("llm_key_points.interfaces.cli.commands.BeautifulSoupWebRepository")
+@patch("llm_key_points.interfaces.cli.commands.JsonDatasetRepository")
+@patch("llm_key_points.interfaces.cli.commands.OpenAICompatibleExtractor")
 @patch("llm_key_points.interfaces.cli.cli_app.RichPresenter")
-@patch("llm_key_points.interfaces.cli.cli_app.ExtractKeyPointsUseCase")
+@patch("llm_key_points.interfaces.cli.commands.ExtractKeyPointsUseCase")
 @patch("llm_key_points.interfaces.cli.cli_app.get_api_key")
 def test_process_command(
     mock_get_api_key,
@@ -124,8 +126,8 @@ def test_process_command(
         assert mock_dataset_repo.save.call_count >= 1
 
 
-@patch("llm_key_points.interfaces.cli.cli_app.JsonDatasetRepository")
-@patch("llm_key_points.interfaces.cli.cli_app.OpenAICompatibleExtractor")
+@patch("llm_key_points.interfaces.cli.commands.JsonDatasetRepository")
+@patch("llm_key_points.interfaces.cli.commands.OpenAICompatibleExtractor")
 @patch("llm_key_points.interfaces.cli.cli_app.get_api_key")
 def test_clean_command(mock_get_api_key, mock_extractor_class, mock_dataset_repo_class):
     """Test the clean command."""
@@ -179,7 +181,7 @@ def test_clean_command(mock_get_api_key, mock_extractor_class, mock_dataset_repo
         assert mock_dataset_repo.save.call_count >= 1
 
 
-@patch("llm_key_points.interfaces.cli.cli_app.JsonDatasetRepository")
+@patch("llm_key_points.interfaces.cli.commands.JsonDatasetRepository")
 def test_validate_command(mock_dataset_repo_class):
     """Test the validate command."""
     # Set up mocks
@@ -204,7 +206,7 @@ def test_validate_command(mock_dataset_repo_class):
     assert "Dataset contains invalid entries!" in result.stdout
 
 
-@patch("llm_key_points.interfaces.cli.cli_app.JsonDatasetRepository")
+@patch("llm_key_points.interfaces.cli.commands.JsonDatasetRepository")
 def test_convert_command(mock_dataset_repo_class):
     """Test the convert command."""
     # Set up mocks
@@ -228,16 +230,14 @@ def test_convert_command(mock_dataset_repo_class):
     mock_dataset.convert_to_sharegpt_format.assert_called_once()
 
 
-@patch("llm_key_points.interfaces.cli.cli_app.JsonDatasetRepository")
-@patch("llm_key_points.interfaces.cli.cli_app.OllamaFactChecker")
+@patch("llm_key_points.interfaces.cli.commands.JsonDatasetRepository")
+@patch("llm_key_points.interfaces.cli.commands.OllamaFactChecker")
 @patch("llm_key_points.interfaces.cli.cli_app.RichPresenter")
-@patch("llm_key_points.interfaces.cli.cli_app.VerifyDatasetUseCase")
 @patch("requests.get")
 @patch("llm_key_points.interfaces.cli.cli_app.get_api_key")
 def test_verify_command(
     mock_get_api_key,
     mock_requests_get,
-    mock_use_case_class,
     mock_presenter_class,
     mock_fact_checker_class,
     mock_dataset_repo_class,
@@ -262,11 +262,6 @@ def test_verify_command(
     verification_results.accurate = [{"point": "Point", "verification": {}}]
     mock_fact_checker.verify_key_points.return_value = verification_results
     mock_fact_checker_class.return_value = mock_fact_checker
-
-    # Mock the use case
-    mock_use_case = Mock()
-    mock_use_case.verify_dataset.return_value = mock_dataset
-    mock_use_case_class.return_value = mock_use_case
 
     # Mock the Ollama API health check
     mock_requests_get.return_value = Mock(status_code=200)
