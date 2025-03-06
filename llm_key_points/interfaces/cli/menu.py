@@ -3,18 +3,19 @@ Interactive menu handling for the CLI interface.
 """
 
 from pathlib import Path
-import questionary
 from typing import List
 
+import questionary
+
+from ..console.rich_presenter import RichPresenter
 from .api_key_manager import get_api_key, manage_api_key
 from .commands import (
-    process_urls,
     clean_dataset,
+    convert_dataset,
+    process_urls,
     validate_dataset,
     verify_dataset,
-    convert_dataset,
 )
-from ..console.rich_presenter import RichPresenter
 
 presenter = RichPresenter()
 

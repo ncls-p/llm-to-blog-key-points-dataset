@@ -8,8 +8,8 @@ from unittest.mock import Mock, patch
 import pytest
 from typer.testing import CliRunner
 
-from llm_key_points.interfaces.cli.cli_app import app
 from llm_key_points.interfaces.cli.api_key_manager import validate_api_key
+from llm_key_points.interfaces.cli.cli_app import app
 from llm_key_points.interfaces.cli.menu import validate_url
 
 runner = CliRunner()

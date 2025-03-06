@@ -4,7 +4,9 @@ API key management functionality.
 
 import os
 import re
+
 import questionary
+
 from ..console.rich_presenter import RichPresenter
 
 presenter = RichPresenter()

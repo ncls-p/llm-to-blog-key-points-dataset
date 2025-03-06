@@ -9,16 +9,16 @@ from typing import Optional
 import typer
 from dotenv import load_dotenv
 
+from ..console.rich_presenter import RichPresenter
 from .api_key_manager import get_api_key
 from .commands import (
-    process_urls,
     clean_dataset,
+    convert_dataset,
+    process_urls,
     validate_dataset,
     verify_dataset,
-    convert_dataset,
 )
-from .menu import main_menu, get_urls
-from ..console.rich_presenter import RichPresenter
+from .menu import get_urls, main_menu
 
 # Load environment variables
 load_dotenv()
