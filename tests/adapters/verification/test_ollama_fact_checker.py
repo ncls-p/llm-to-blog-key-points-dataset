@@ -5,6 +5,7 @@ Tests for the Ollama fact checker.
 from unittest.mock import MagicMock, patch
 
 import requests
+import pytest
 
 from llm_key_points.adapters.verification import OllamaFactChecker
 from llm_key_points.core.entities.dataset_entry import VerificationResults
@@ -207,3 +208,49 @@ def test_verify_key_points_content_truncation():
         # Check truncation
         assert len(document_content) < 7000
         assert document_content.endswith("...")
+
+
+@pytest.fixture
+def mock_response():
+    """Create a mock response for testing."""
+    return {
+        "choices": [
+            {"message": {"content": "Yes, this claim is consistent with the document."}}
+        ]
+    }
+
+
+@pytest.fixture
+def fact_checker():
+    """Create a fact checker instance with mocked responses."""
+    with patch("requests.post") as mock_post:
+        mock_post.return_value.json.return_value = {
+            "choices": [
+                {
+                    "message": {
+                        "content": "Yes, this claim is consistent with the document."
+                    }
+                }
+            ]
+        }
+        mock_post.return_value.raise_for_status.return_value = None
+        checker = OllamaFactChecker()
+        yield checker
+
+
+def test_verify_key_points_returns_correct_structure(mock_response, fact_checker):
+    """Test that verify_key_points returns the expected structure."""
+    content = "This is a sample article."
+    key_points = "* Point 1\n* Point 2"
+
+    results = fact_checker.verify_key_points(content, key_points)
+
+    # Validate result structure has the expected attributes
+    assert hasattr(results, "accurate")
+    assert hasattr(results, "inaccurate")
+    assert hasattr(results, "uncertain")
+
+    # Check we got expected types
+    assert isinstance(results.accurate, list)
+    assert isinstance(results.inaccurate, list)
+    assert isinstance(results.uncertain, list)

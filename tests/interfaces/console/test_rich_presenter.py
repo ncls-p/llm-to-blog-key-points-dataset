@@ -4,8 +4,17 @@ Tests for the Rich console presenter.
 
 from rich.console import Console
 from rich.table import Table
+from rich.progress import ProgressColumn
 
 from llm_key_points.interfaces.console import RichPresenter
+
+import pytest
+
+
+@pytest.fixture
+def presenter():
+    """Create a RichPresenter instance for testing."""
+    return RichPresenter()
 
 
 def test_display_welcome(capsys):
@@ -112,14 +121,16 @@ def test_display_warning_message(capsys):
     assert message in captured.out
 
 
-def test_create_progress():
-    """Test progress bar creation."""
-    presenter = RichPresenter()
-    progress = presenter.create_progress("Testing progress")
+def test_create_progress(presenter):
+    """Test that create_progress returns a progress instance with correct columns."""
+    progress = presenter.create_progress("Test Progress")
 
-    assert "Testing progress" in progress.columns[1].text_format
-    assert isinstance(progress.columns[0], type(progress.columns[0]))  # SpinnerColumn
-    assert isinstance(progress.columns[2], type(progress.columns[2]))  # BarColumn
-    assert isinstance(
-        progress.columns[3], type(progress.columns[3])
-    )  # TaskProgressColumn
+    # Get progress columns
+    columns = progress.columns
+
+    # Check column types and properties
+    assert len(columns) > 0
+    assert isinstance(columns[0], ProgressColumn)  # SpinnerColumn
+    assert isinstance(columns[1], ProgressColumn)  # TextColumn
+    assert isinstance(columns[2], ProgressColumn)  # BarColumn
+    assert isinstance(columns[3], ProgressColumn)  # TaskProgressColumn

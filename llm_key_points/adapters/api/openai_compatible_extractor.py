@@ -24,18 +24,32 @@ class OpenAICompatibleExtractor(KeyPointsExtractor):
     def __init__(
         self,
         api_key: str,
-        model: str = None,
+        model: Optional[str] = None,
         max_retries: int = 3,
         retry_delay: int = 5,
     ):
+        """Initialize the extractor.
+
+        Args:
+            api_key: The API key for authentication
+            model: Optional model name, defaults to DEFAULT_MODEL if not provided
+            max_retries: Number of retries for failed requests
+            retry_delay: Delay between retries in seconds
+        """
         self.api_key = api_key
-        self.model = model or os.getenv("OPENAI_COMPATIBLE_MODEL", self.DEFAULT_MODEL)
+        self.model = (
+            model
+            if model is not None
+            else os.getenv("OPENAI_COMPATIBLE_MODEL", self.DEFAULT_MODEL)
+        )
         self.max_retries = max_retries
         self.retry_delay = retry_delay
 
         # Set up API URL
         base_api_url = os.getenv("OPENAI_COMPATIBLE_API_URL", "https://api.openai.com")
-        self.api_url = f"{base_api_url}/chat/completions"
+        self.api_url = (
+            f"{base_api_url}/v1/chat/completions"  # Fixed API path to include v1
+        )
 
         # Set up headers
         self.headers = {
