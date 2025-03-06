@@ -1,0 +1,2 @@
+[console_scripts]
+llm-key-points = llm_key_points.interfaces.cli:run

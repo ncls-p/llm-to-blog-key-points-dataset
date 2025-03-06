@@ -1,0 +1,21 @@
+Metadata-Version: 2.2
+Name: llm-key-points
+Version: 0.1.0
+Summary: A tool for generating and managing datasets of key points extracted from web content
+Author: Ncls-p
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Requires-Dist: requests>=2.31.0
+Requires-Dist: beautifulsoup4>=4.12.2
+Requires-Dist: typing-extensions>=4.7.1
+Requires-Dist: typer>=0.9.0
+Requires-Dist: rich>=13.7.0
+Requires-Dist: questionary>=2.0.1
+Requires-Dist: python-dotenv>=1.0.0
+Dynamic: author
+Dynamic: classifier
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
