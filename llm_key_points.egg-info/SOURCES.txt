@@ -27,6 +27,9 @@ llm_key_points/core/use_cases/extract_key_points.py
 llm_key_points/core/use_cases/verify_key_points.py
 llm_key_points/interfaces/__init__.py
 llm_key_points/interfaces/cli/__init__.py
+llm_key_points/interfaces/cli/api_key_manager.py
 llm_key_points/interfaces/cli/cli_app.py
+llm_key_points/interfaces/cli/commands.py
+llm_key_points/interfaces/cli/menu.py
 llm_key_points/interfaces/console/__init__.py
 llm_key_points/interfaces/console/rich_presenter.py

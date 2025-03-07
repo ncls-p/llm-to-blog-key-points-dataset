@@ -10,7 +10,11 @@ from typing import Optional
 
 import requests
 
-from ...core.interfaces.ai_services import KeyPointsExtractor
+from ...core.interfaces.ai_services import (
+    KeyPointsExtractor,
+    FactChecker,
+    ExtractorConfig,
+)
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -24,6 +28,7 @@ class OpenAICompatibleExtractor(KeyPointsExtractor):
     def __init__(
         self,
         api_key: str,
+        fact_checker: Optional[FactChecker] = None,
         model: Optional[str] = None,
         max_retries: int = 3,
         retry_delay: int = 5,
@@ -32,11 +37,13 @@ class OpenAICompatibleExtractor(KeyPointsExtractor):
 
         Args:
             api_key: The API key for authentication
+            fact_checker: Optional FactChecker instance for verifying key points
             model: Optional model name, defaults to DEFAULT_MODEL if not provided
             max_retries: Number of retries for failed requests
             retry_delay: Delay between retries in seconds
         """
         self.api_key = api_key
+        self.fact_checker = fact_checker
         self.model = (
             model
             if model is not None
@@ -47,9 +54,7 @@ class OpenAICompatibleExtractor(KeyPointsExtractor):
 
         # Set up API URL
         base_api_url = os.getenv("OPENAI_COMPATIBLE_API_URL", "https://api.openai.com")
-        self.api_url = (
-            f"{base_api_url}/v1/chat/completions"  # Fixed API path to include v1
-        )
+        self.api_url = f"{base_api_url}/chat/completions"
 
         # Set up headers
         self.headers = {
@@ -57,8 +62,50 @@ class OpenAICompatibleExtractor(KeyPointsExtractor):
             "Content-Type": "application/json",
         }
 
-    def extract_key_points(self, content: str) -> Optional[str]:
+    def extract_key_points(
+        self, content: str, config: Optional[ExtractorConfig] = None
+    ) -> Optional[str]:
         """Extract key points from the given content using the OpenAI API."""
+        if config is None:
+            config = ExtractorConfig()
+
+        attempts = 0
+        key_points = None  # Initialize key_points to None
+
+        while attempts <= (
+            config.max_regeneration_attempts if config.auto_check_enabled else 0
+        ):
+            key_points = self._generate_key_points(content)
+            if not key_points:
+                return None
+
+            # If auto-check is disabled or no fact checker available, return first generation
+            if not config.auto_check_enabled or not self.fact_checker:
+                return key_points
+
+            # Verify key points
+            verification_results = self.fact_checker.verify_key_points(
+                content, key_points
+            )
+
+            # If all points are accurate or we're out of attempts, return current points
+            if (
+                not verification_results.inaccurate
+                or attempts == config.max_regeneration_attempts
+            ):
+                return key_points
+
+            # Log that we're regenerating due to inaccuracies
+            logger.info(
+                f"Found {len(verification_results.inaccurate)} inaccurate points, regenerating..."
+            )
+            attempts += 1
+
+        # Return the last generated key points (may be None if generation always failed)
+        return key_points
+
+    def _generate_key_points(self, content: str) -> Optional[str]:
+        """Internal method to generate key points using the API."""
         messages = [
             {
                 "role": "system",

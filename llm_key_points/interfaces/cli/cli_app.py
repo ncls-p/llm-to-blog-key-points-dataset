@@ -43,11 +43,25 @@ def process(
         "--verify-points",
         help="Verify key points against original content using Ollama",
     ),
+    auto_check: bool = typer.Option(
+        False,
+        "--auto-check",
+        "-a",
+        help="Automatically verify and regenerate inaccurate key points",
+    ),
+    max_attempts: int = typer.Option(
+        2,
+        "--max-attempts",
+        "-m",
+        help="Maximum number of regeneration attempts when auto-checking",
+    ),
 ):
     """Process URLs and enhance your dataset with OpenAI compatible API."""
     urls = get_urls()
     api_key = get_api_key()
-    process_urls(urls, dataset_path, backup, verify_points, api_key)
+    process_urls(
+        urls, dataset_path, backup, verify_points, api_key, auto_check, max_attempts
+    )
 
 
 @app.command()

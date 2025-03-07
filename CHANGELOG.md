@@ -1,9 +1,25 @@
-`# Changelog
+# Changelog
 
-All notable changes to this project will be documented in this file.
+## [Unreleased]
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+### Added
+
+- Automatic verification of key points using Bespoke-MiniCheck right after generation
+- Automatic regeneration of key points when inaccuracies are detected
+- Integration of fact checker with key points extractor for improved accuracy
+- New CLI options for configuring auto-check behavior:
+  - `--auto-check/-a` flag to enable automatic verification
+  - `--max-attempts/-m` option to set maximum regeneration attempts
+- ExtractorConfig class for handling extraction configuration
+- Improved error handling and logging for verification attempts
+
+### Changed
+
+- ExtractKeyPointsUseCase now injects fact checker into extractor for seamless verification
+- Improved logging of key point regeneration attempts
+- ExtractKeyPointsUseCase now accepts auto-check configuration
+- OpenAICompatibleExtractor refactored to support configurable verification
+- CLI interface updated to expose verification options to users
 
 ## [0.1.0] - 2024-03-13
 

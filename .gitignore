@@ -3,6 +3,19 @@
 # Python
 .venv
 __pycache__
+.coverage
+.pytest_cache
+
+# vscode
+.vscode/
+# pycharm
+.idea/
+# mypy
+.mypy_cache/
+# pytest
+.cache/
+# coverage
+.coverage.*
 
 # macOS
 .DS_Store

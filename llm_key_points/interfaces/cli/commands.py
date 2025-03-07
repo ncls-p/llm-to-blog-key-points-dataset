@@ -1,7 +1,6 @@
-"""
-Command implementations for the CLI interface.
-"""
+"""Command implementations for the CLI interface."""
 
+import logging
 from pathlib import Path
 from typing import List, Optional
 
@@ -14,12 +13,21 @@ from ...adapters.verification.ollama_fact_checker import OllamaFactChecker
 from ...core.use_cases.extract_key_points import ExtractKeyPointsUseCase
 from ..console.rich_presenter import RichPresenter
 
+# Set up logging
+logger = logging.getLogger(__name__)
+
 # Initialize shared components
 presenter = RichPresenter()
 
 
 def process_urls(
-    urls: List[str], dataset_path: Path, backup: bool, verify_points: bool, api_key: str
+    urls: List[str],
+    dataset_path: Path,
+    backup: bool,
+    verify_points: bool,
+    api_key: str,
+    auto_check: bool = False,
+    max_attempts: int = 2,
 ):
     """Process URLs and enhance dataset."""
     # Display URLs to process
@@ -29,47 +37,40 @@ def process_urls(
     # Set up components
     web_repo = BeautifulSoupWebRepository()
     dataset_repo = JsonDatasetRepository()
-    extractor = OpenAICompatibleExtractor(api_key)
+    fact_checker = OllamaFactChecker() if verify_points or auto_check else None
+    extractor = OpenAICompatibleExtractor(api_key, fact_checker=fact_checker)
 
-    # Set up fact checker if verification is requested
-    fact_checker = None
-    if verify_points:
-        fact_checker = OllamaFactChecker()
-
-    # Create use case
+    # Create use case with correct parameter order
     use_case = ExtractKeyPointsUseCase(
-        web_repository=web_repo,
+        extractor=extractor,
         dataset_repository=dataset_repo,
-        key_points_extractor=extractor,
+        web_content_repository=web_repo,
         fact_checker=fact_checker,
     )
 
     # Process URLs
-    with presenter.create_progress("Processing URLs...") as progress:
-        task = progress.add_task("Processing URLs...", total=len(urls))
+    try:
+        result = use_case.extract_key_points_from_urls(
+            urls=urls,
+            auto_check=auto_check,
+            max_regeneration_attempts=max_attempts,
+            file_path=dataset_path,
+        )
 
-        for i, url in enumerate(urls):
-            progress_message = f"Processing: {url}"
-            if verify_points:
-                progress_message += " (with verification)"
+        # Display the results
+        presenter.console.print(
+            "\n✅ Key points extracted successfully!", style="bold green"
+        )
 
-            progress.update(task, description=progress_message)
+        # Display dataset statistics
+        total_entries = len(result.entries)
+        presenter.console.print("\nDataset Statistics:", style="bold blue")
+        presenter.console.print(f"   Total entries: {total_entries}", style="blue")
+        presenter.console.print(f"   Dataset saved to: {dataset_path}", style="blue")
 
-            try:
-                entry = use_case.extract_from_url(url, verify_points)
-                if entry:
-                    # Load current dataset
-                    dataset = dataset_repo.load(dataset_path)
-                    dataset.add_entry(entry)
-                    dataset_repo.save(dataset, dataset_path, backup=(i == 0 and backup))
-
-                progress.advance(task)
-            except Exception as e:
-                presenter.display_error_message(f"Error processing {url}: {str(e)}")
-
-    presenter.display_success_message(
-        f"Processing complete! Dataset saved to {dataset_path}"
-    )
+    except Exception as e:
+        presenter.display_error_message(f"Error processing URLs: {str(e)}")
+        raise typer.Exit(1)
 
 
 def clean_dataset(dataset_path: Path, backup: bool, api_key: str):
