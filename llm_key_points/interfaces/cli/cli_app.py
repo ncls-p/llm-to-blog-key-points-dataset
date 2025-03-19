@@ -18,7 +18,7 @@ from .commands import (
     validate_dataset,
     verify_dataset,
 )
-from .menu import get_urls, main_menu
+from .menu import get_urls, main_menu, read_urls_from_csv
 
 # Load environment variables
 load_dotenv()
@@ -55,9 +55,31 @@ def process(
         "-m",
         help="Maximum number of regeneration attempts when auto-checking",
     ),
+    csv_file: Optional[Path] = typer.Option(
+        None, "--csv", "-c", help="Path to a CSV file containing URLs to process"
+    ),
 ):
     """Process URLs and enhance your dataset with OpenAI compatible API."""
-    urls = get_urls()
+    urls = []
+
+    if csv_file:
+        if not csv_file.exists():
+            presenter.display_error_message(f"CSV file not found: {csv_file}")
+            raise typer.Exit(1)
+
+        urls = read_urls_from_csv(csv_file)
+        if not urls:
+            presenter.display_error_message(f"No valid URLs found in {csv_file}")
+            raise typer.Exit(1)
+
+        presenter.display_success_message(f"Loaded {len(urls)} URLs from {csv_file}")
+    else:
+        urls = get_urls()
+
+    if not urls:
+        presenter.display_warning_message("No URLs provided. Operation cancelled.")
+        return
+
     api_key = get_api_key()
     process_urls(
         urls, dataset_path, backup, verify_points, api_key, auto_check, max_attempts

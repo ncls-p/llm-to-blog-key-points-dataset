@@ -2,6 +2,8 @@
 Interactive menu handling for the CLI interface.
 """
 
+import csv
+import os
 from pathlib import Path
 from typing import List
 
@@ -25,8 +27,127 @@ def validate_url(url: str) -> bool:
     return url.startswith(("http://", "https://"))
 
 
+def read_urls_from_csv(csv_path: Path) -> List[str]:
+    """Read URLs from a CSV file.
+
+    Args:
+        csv_path: Path to the CSV file
+
+    Returns:
+        A list of URLs from the CSV file
+    """
+    urls = []
+
+    # First check if file exists
+    if not csv_path.exists():
+        presenter.display_error_message(f"File not found: {csv_path}")
+        return []
+
+    # Check if file is readable
+    if not csv_path.is_file() or not os.access(csv_path, os.R_OK):
+        presenter.display_error_message(
+            f"Cannot read file (check permissions): {csv_path}"
+        )
+        return []
+
+    try:
+        with open(csv_path, "r") as file:
+            reader = csv.DictReader(file)
+            # Check if the CSV has a column named 'urls' or 'url'
+            fieldnames = reader.fieldnames
+            url_column = None
+            if fieldnames:
+                if "urls" in fieldnames:
+                    url_column = "urls"
+                elif "url" in fieldnames:
+                    url_column = "url"
+
+            if url_column:
+                for row in reader:
+                    url = row[url_column].strip()
+                    if url and validate_url(url):
+                        urls.append(url)
+            else:
+                # If no header or specific column names found, try to read the first column
+                with open(csv_path, "r") as file:
+                    reader = csv.reader(file)
+                    next(reader, None)  # Skip header row
+                    for row in reader:
+                        if row and row[0].strip() and validate_url(row[0].strip()):
+                            urls.append(row[0].strip())
+
+        return urls
+    except Exception as e:
+        presenter.display_error_message(f"Error reading CSV file: {str(e)}")
+        return []
+
+
 def get_urls() -> List[str]:
     """Get URLs from user input."""
+    # First ask if the user wants to enter URLs manually or load from CSV
+    source = questionary.select(
+        "How would you like to provide URLs?",
+        choices=[
+            "Enter URLs manually",
+            "Load from CSV file",
+        ],
+    ).ask()
+
+    urls = []
+
+    if source == "Load from CSV file":
+        while True:
+            csv_path = Path(
+                questionary.path("Enter CSV file path:", default="./url.csv").ask()
+            )
+
+            if not csv_path.exists():
+                presenter.display_error_message(f"File not found: {csv_path}")
+                if questionary.confirm("Would you like to try another file?").ask():
+                    continue
+                else:
+                    return (
+                        get_urls_manually()
+                        if questionary.confirm(
+                            "Would you like to enter URLs manually instead?"
+                        ).ask()
+                        else []
+                    )
+
+            urls = read_urls_from_csv(csv_path)
+            if urls:
+                presenter.display_success_message(
+                    f"Loaded {len(urls)} URLs from {csv_path}"
+                )
+                # Display some of the loaded URLs
+                if len(urls) > 5:
+                    for url in urls[:5]:
+                        presenter.console.print(f"  - {url}", style="cyan")
+                    presenter.console.print(
+                        f"  - ... and {len(urls) - 5} more", style="cyan"
+                    )
+                else:
+                    for url in urls:
+                        presenter.console.print(f"  - {url}", style="cyan")
+                break
+            else:
+                presenter.display_warning_message(f"No valid URLs found in {csv_path}")
+                if questionary.confirm("Would you like to try another file?").ask():
+                    continue
+                elif questionary.confirm(
+                    "Would you like to enter URLs manually instead?"
+                ).ask():
+                    return get_urls_manually()
+                else:
+                    return []
+    else:
+        urls = get_urls_manually()
+
+    return urls
+
+
+def get_urls_manually() -> List[str]:
+    """Get URLs through manual input."""
     urls = []
     while True:
         url = questionary.text(
@@ -62,6 +183,10 @@ def handle_process_urls():
     ).ask()
 
     urls = get_urls()
+    if not urls:
+        presenter.display_warning_message("No URLs provided. Operation cancelled.")
+        return
+
     if not questionary.confirm("Process these URLs?").ask():
         presenter.display_warning_message("Operation cancelled")
         return
@@ -145,6 +270,6 @@ def main_menu():
             manage_api_key()
         else:
             presenter.console.print("\n👋 Goodbye!", style="bold cyan")
-            return
 
+            return
         input("\nPress Enter to continue...")
